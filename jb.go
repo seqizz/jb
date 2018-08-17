@@ -107,18 +107,13 @@ func executeQuery(conf configItem) []jira.Issue {
 
 	config := readConfig()
 
-	kanbanlist, _, err := jiraClient.Issue.Search(config.query, nil)
+	issuelist, _, err := jiraClient.Issue.Search(config.query, nil)
 	if err != nil {
 		fmt.Printf("Result: %v\n", err)
 		panic(err)
 	}
-	// for i := range kanbanlist {
-	// 	fmt.Fprintln(os.Stdout, kanbanlist[i].Fields.Summary)
-	// 	fmt.Fprintln(os.Stdout, kanbanlist[i].Fields.Status.Name)
-	// }
-	// return []jira.Issue{}
 
-	return kanbanlist
+	return issuelist
 }
 
 func activateFirstIssue(g *gocui.Gui) {
@@ -191,7 +186,7 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
 			menuView, _ := g.View("menu")
 			destroyView(g, menuView)
 		} else {
-			updateStatus(g, "Issue URL can't found, sorry.")
+			updateStatus(g, "Couldn't find the issue URL, sorry.")
 		}
 	case "":
 		// WHY U SELECT NOTHING?
@@ -236,7 +231,6 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
 			xzero, _, _, yone, _ := g.ViewPosition(logicalMx[i].members[active.indexno].view.Title)
 			if yone > maxY-14 {
 				// Menu will not fit, so let's lift it up a bit
-				// TODO test this with a long menu
 				menuCoord = [4]int{xzero, yone - 14, xzero + 32, yone}
 			} else {
 				menuCoord = [4]int{xzero, yone, xzero + 32, yone + 14}
@@ -281,23 +275,9 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
 	return nil
 }
 
-func printZaaaa(g *gocui.Gui, v *gocui.View) error {
-	fmt.Fprintln(os.Stdout, active)
-	fmt.Fprintln(os.Stdout, active)
-	fmt.Fprintln(os.Stdout, kanbanlist)
-	// for k, v := range logicalMx {
-	// 	fmt.Fprintln(os.Stdout, k)
-	// 	fmt.Fprintln(os.Stdout, v)
-	// }
-
-	updateStatus(g, "ook")
-
-	return nil
-}
-
 func refreshBoard(g *gocui.Gui, v *gocui.View) error {
 
-	updateStatus(g, "Refreshing board")
+	updateStatus(g, "Refreshing board...")
 
 	for i := range logicalMx {
 		for m := range logicalMx[i].members {
@@ -386,6 +366,8 @@ func createIssue(g *gocui.Gui, issue jira.Issue) error {
 			}
 		}
 		v.Title = issue.Key
+		// We will use ANSI color here
+		// I hope your terminal is clever enough
 		fmt.Fprintln(v, "\x1b[0;34m"+componentList+"\x1b[0m"+issue.Fields.Summary)
 		registerIssue(issueBox{view: v, issue: issue})
 		if err := g.SetKeybinding(issue.Key, gocui.KeyArrowDown, gocui.ModNone, downView); err != nil {
@@ -737,6 +719,7 @@ func drawBoard(g *gocui.Gui) error {
 		v.Editable = false
 		v.Frame = false
 		v.BgColor = gocui.ColorMagenta
+		fmt.Fprintln(v, "Loading issues...")
 	}
 
 	return nil
@@ -868,9 +851,6 @@ func main() {
 		log.Panicln(err)
 	}
 	if err := g.SetKeybinding("", gocui.KeyF5, gocui.ModNone, refreshBoard); err != nil {
-		log.Panicln(err)
-	}
-	if err := g.SetKeybinding("", gocui.KeyF8, gocui.ModNone, printZaaaa); err != nil {
 		log.Panicln(err)
 	}
 
