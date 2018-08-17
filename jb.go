@@ -168,6 +168,14 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
 		if err := g.SetKeybinding("msgBox", gocui.KeyCtrlD, gocui.ModNone, destroyView); err != nil {
 			log.Panicln(err)
 		}
+		if err := g.SetKeybinding("msgBox", gocui.KeyCtrlS, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+			updateStatus(g, "Sorry, not implemented yet!")
+			destroyView(g, v)
+			return nil
+		}); err != nil {
+			log.Panicln(err)
+		}
+		updateStatus(g, "Send: Ctrl-S (not implemented yet)  |  Discard: Ctrl-D")
 	case "Open in browser":
 		conf := readConfig()
 		issueURL := ""
