@@ -12,8 +12,7 @@ It's still buggy, but good enough my usage. Pull requests are welcome.
 
 #### Installation
 
-- Clone the repo
-- Build it with `go build jb.go`
+- Get it with `go get github.com/seqizz/jb`
 - Run the executable to get your example config
 - Create the configuration and enjoy!
 
