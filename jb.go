@@ -175,7 +175,35 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
 		}); err != nil {
 			log.Panicln(err)
 		}
-		updateStatus(g, "Send: Ctrl-S (not implemented yet)  |  Discard: Ctrl-D")
+		updateStatus(g, "Send: Ctrl-S (not implemented yet)  |  Close: Ctrl-D")
+	case "Preview issue":
+		maxX, maxY := g.Size()
+		if v, err := g.SetView("previewBox", maxX/2-40, maxY/2-8, maxX/2+40, maxY/2+8); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			v.Title = "Details of " + active.issuetitle
+			v.Autoscroll = false
+			v.Wrap = true
+			for i := range logicalMx {
+				if logicalMx[i].view.Title == active.columnname {
+					lineSlice := strings.SplitN(
+						logicalMx[i].members[active.indexno].issue.Fields.Description,
+						"\r\n",
+						-1,
+					)
+					for i := range lineSlice {
+						fmt.Fprintln(v, lineSlice[i])
+					}
+					break
+				}
+			}
+			setCurrentViewOnTop(g, "previewBox")
+		}
+		if err := g.SetKeybinding("previewBox", gocui.KeyCtrlD, gocui.ModNone, destroyView); err != nil {
+			log.Panicln(err)
+		}
+		updateStatus(g, "Close: Ctrl-D")
 	case "Open in browser":
 		conf := readConfig()
 		issueURL := ""
@@ -222,6 +250,7 @@ func destroyView(g *gocui.Gui, v *gocui.View) error {
 			setCurrentViewOnTop(g, active.issuetitle)
 			updateStatus(g, infoText)
 		} else {
+			updateStatus(g, "")
 			setCurrentViewOnTop(g, "menu")
 		}
 	}
@@ -271,6 +300,7 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
 			fmt.Fprintln(v, "Send to -> "+i)
 		}
 		fmt.Fprintln(v, "Open in browser")
+		fmt.Fprintln(v, "Preview issue")
 		fmt.Fprintln(v, "Comment on issue")
 	}
 	if err := g.SetKeybinding("menu", gocui.KeySpace, gocui.ModNone, destroyView); err != nil {
