@@ -9,6 +9,7 @@ It's still buggy, but good enough my usage. Pull requests are welcome.
 - Navigate between issues
 - Change issue status (column)
 - Open issues with a browser
+- Preview issue details
 
 #### Installation
 
@@ -19,7 +20,7 @@ It's still buggy, but good enough my usage. Pull requests are welcome.
 #### Todo
 
 - Make commenting on issues possible
-- Display issue details in a window
+- Make issue preview better
 
 #### Thanks to
 

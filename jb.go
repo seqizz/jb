@@ -178,23 +178,40 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
 		updateStatus(g, "Send: Ctrl-S (not implemented yet)  |  Close: Ctrl-D")
 	case "Preview issue":
 		maxX, maxY := g.Size()
-		if v, err := g.SetView("previewBox", maxX/2-40, maxY/2-8, maxX/2+40, maxY/2+8); err != nil {
+		if v, err := g.SetView("previewBox", 5, 3, maxX-5, maxY-3); err != nil {
 			if err != gocui.ErrUnknownView {
 				return err
 			}
 			v.Title = "Details of " + active.issuetitle
 			v.Autoscroll = false
 			v.Wrap = true
+			v.Editable = true
 			for i := range logicalMx {
 				if logicalMx[i].view.Title == active.columnname {
+					issue := logicalMx[i].members[active.indexno].issue
 					lineSlice := strings.SplitN(
-						logicalMx[i].members[active.indexno].issue.Fields.Description,
+						issue.Fields.Description,
 						"\r\n",
 						-1,
 					)
+					fmt.Fprintln(v, "Reporter: "+issue.Fields.Reporter.DisplayName)
+					// fmt.Fprintln(v, "Assignee: "+issue.Fields.Assignee.DisplayName)
+					// fmt.Fprintln(v, "Labels: "+strings.Join(issue.Fields.Labels, ","))
+					// fmt.Fprintln(v, "Priority: "+issue.Fields.Priority.Name)
+					// TODO: Find a way to handle exceptions here,
+					// TODO: Sometimes fields (like .Assignee) is nil
+					fmt.Fprint(v, "Description:\n\n")
 					for i := range lineSlice {
 						fmt.Fprintln(v, lineSlice[i])
 					}
+					// fmt.Fprint(v, "\nComments:\n")
+					// comments := issue.Fields.Comments.Comments
+					// for i := range comments {
+					// 	fmt.Fprintln(
+					// 		v,
+					// 		comments[i].Author.DisplayName+" : "+comments[i].Body,
+					// 	)
+					// }
 					break
 				}
 			}
