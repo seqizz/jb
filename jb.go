@@ -1,11 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
+    // TODO: sort the menu items (actionMap)
+    // "sort"
 
 	jira "github.com/andygrunwald/go-jira"
 	"github.com/jroimartin/gocui"
@@ -135,13 +138,25 @@ func setCurrentViewOnTop(g *gocui.Gui, name string) (*gocui.View, error) {
 	return g.SetViewOnTop(name)
 }
 
-func registerIssue(box issueBox) {
+func getColumn(title string) (*column, error) {
 
 	for i := range logicalMx {
-		if logicalMx[i].view.Title == box.issue.Fields.Status.Name {
-			logicalMx[i].members = append(logicalMx[i].members, box)
+		if logicalMx[i].view.Title == title {
+			return &logicalMx[i], nil
 		}
 	}
+	return &column{}, errors.New("Couldn't found column with given title")
+}
+
+func registerIssue(box issueBox) bool {
+
+	col, err := getColumn(box.issue.Fields.Status.Name)
+	if err != nil {
+		return false
+	}
+
+	col.members = append(col.members, box)
+	return true
 
 }
 
@@ -224,35 +239,29 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
 	case "Open in browser":
 		conf := readConfig()
 		issueURL := ""
-		for k := range logicalMx {
-			if logicalMx[k].view.Title == active.columnname {
-				issueURL = conf.instanceURL + "/browse/" + logicalMx[k].members[active.indexno].issue.Key
-				break
-			}
+		col, err := getColumn(active.columnname)
+		if err != nil {
+			updateStatus(g, "Couldn't find active column, something is very wrong.")
 		}
-		if issueURL != "" {
-			cmd := exec.Command(conf.browserCommand, issueURL)
-			err := cmd.Start()
-			if err != nil {
-				log.Fatal(err)
-			}
-			menuView, _ := g.View("menu")
-			destroyView(g, menuView)
-		} else {
-			updateStatus(g, "Couldn't find the issue URL, sorry.")
+		issueURL = conf.instanceURL + "/browse/" + col.members[active.indexno].issue.Key
+		cmd := exec.Command(conf.browserCommand, issueURL)
+		err = cmd.Start()
+		if err != nil {
+			log.Fatal(err)
 		}
+		menuView, _ := g.View("menu")
+		destroyView(g, menuView)
 	case "":
 		// WHY U SELECT NOTHING?
 		// I'LL CLOSE THE MENU!!
 		menuView, _ := g.View("menu")
 		destroyView(g, menuView)
 	default:
-		for i := range logicalMx {
-			if logicalMx[i].view.Title == active.columnname {
-				jiraAction(g, &logicalMx[i].members[active.indexno].issue, line)
-				break
-			}
+		col, err := getColumn(active.columnname)
+		if err != nil {
+			updateStatus(g, "Couldn't find active column, something is very wrong.")
 		}
+		jiraAction(g, &col.members[active.indexno].issue, line)
 		refreshBoard(g, v)
 	}
 
@@ -280,18 +289,19 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
 
 	_, maxY := g.Size()
 	activeIssue := jira.Issue{}
-	for i := range logicalMx {
-		if logicalMx[i].view.Title == active.columnname {
-			xzero, _, _, yone, _ := g.ViewPosition(logicalMx[i].members[active.indexno].view.Title)
-			if yone > maxY-14 {
-				// Menu will not fit, so let's lift it up a bit
-				menuCoord = [4]int{xzero, yone - 14, xzero + 32, yone}
-			} else {
-				menuCoord = [4]int{xzero, yone, xzero + 32, yone + 14}
-			}
-			activeIssue = logicalMx[i].members[active.indexno].issue
-		}
+	col, err := getColumn(active.columnname)
+	if err != nil {
+		updateStatus(g, "Couldn't find active column, something is very wrong.")
 	}
+
+	xzero, _, _, yone, _ := g.ViewPosition(col.members[active.indexno].view.Title)
+	if yone > maxY-14 {
+		// Menu will not fit, so let's lift it up a bit
+		menuCoord = [4]int{xzero, yone - 14, xzero + 32, yone}
+	} else {
+		menuCoord = [4]int{xzero, yone, xzero + 32, yone + 14}
+	}
+	activeIssue = col.members[active.indexno].issue
 
 	actionMap := map[string]string{}
 	// Let's first check if the issue belongs to us
@@ -305,7 +315,7 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
 
 	active.availableActions = actionMap
 
-	if v, err := g.SetView(
+    if v, err := g.SetView(
 		"menu", menuCoord[0], menuCoord[1], menuCoord[2], menuCoord[3]); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
