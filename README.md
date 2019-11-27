@@ -23,6 +23,8 @@ It might be still buggy, but usable. Pull requests are welcome.
 
 - Make commenting on issues possible
 - Make issue preview better
+- Make possible to set assignee
+- Comment on issues
 
 #### Thanks to
 

@@ -9,6 +9,7 @@ import (
     "strconv"
     "strings"
     "flag"
+    "hash/fnv"
 
     jira "github.com/andygrunwald/go-jira"
     "github.com/jroimartin/gocui"
@@ -44,15 +45,40 @@ type configItem struct {
 
 var (
     kanbanlist    = []jira.Issue{}
-    kanbanMatrix     = []column{}
+    kanbanMatrix  = []column{}
     active        = &activeBox{}
     jiraClient    = &jira.Client{}
     configColumns = []string{}
     moveCounter   = 0
-    infoText      = "Navigation: Arrow keys  |  Actions Menu: Spacebar  |  Exit: Ctrl-C"
+    infoText      = "Navigation: Arrow keys  |  Actions Menu: Spacebar  |  Exit: Ctrl-C | Reload: F5"
 )
 
 var log = logrus.New()
+
+// We will use ANSI color here
+// I hope your terminal is clever enough
+var resetColor = "\x1b[0m"
+
+func colorHash(input string) string {
+    var colorPalette = []string{
+        "\x1b[0;31m", //red
+        "\x1b[0;32m", //green
+        "\x1b[0;33m", //brown
+        "\x1b[0;34m", //blue
+        "\x1b[0;35m", //purple
+        "\x1b[0;36m", //cyan
+        "\x1b[0;37m", //gray
+    }
+
+    h := fnv.New32a()
+    h.Write([]byte(input))
+
+    generatedInt := int(h.Sum32())
+
+    decidedColor := colorPalette[generatedInt%(len(colorPalette)-1)]
+
+    return decidedColor
+}
 
 // jiraAction function applies the specified action for the key, which
 // is the issue.
@@ -440,15 +466,13 @@ func createIssue(g *gocui.Gui, issue jira.Issue) error {
             if i == 0 {
                 componentList = componentList + "["
             }
-            componentList = componentList + v.Name
+            componentList = componentList + colorHash(v.Name) + v.Name + resetColor + " "
             if i == len(issue.Fields.Components)-1 {
-                componentList = componentList + "]\n"
+                componentList = strings.TrimRight(componentList, " ") + "]\n"
             }
         }
         v.Title = issue.Key
-        // We will use ANSI color here
-        // I hope your terminal is clever enough
-        fmt.Fprintln(v, "\x1b[0;34m"+componentList+"\x1b[0m"+issue.Fields.Summary)
+        fmt.Fprintln(v, componentList + issue.Fields.Summary)
         registerIssue(issueBox{view: v, issue: issue})
         if err := g.SetKeybinding(issue.Key, gocui.KeyArrowDown, gocui.ModNone, downHandler); err != nil {
             log.Panicln(err)
