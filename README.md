@@ -1,6 +1,6 @@
 # jb - command line JIRA kanban board
 
-jb displays your KANBAN kanban board in command line.
+jb displays your JIRA kanban board in command line.
 
 It might be still buggy, but usable. Pull requests are welcome.
 
@@ -14,14 +14,13 @@ It might be still buggy, but usable. Pull requests are welcome.
 #### Installation
 
 - Get it with `go get github.com/seqizz/jb`
-- Run the executable to get your example config
+- Run the executable with -confighelp to get your example config
 - Create the configuration and enjoy faster JIRA!
 
 #### Todo
 
 - Make commenting on issues possible
 - Make issue preview better
-- Make parameterized logging
 
 #### Thanks to
 

@@ -8,6 +8,7 @@ import (
     "sort"
     "strconv"
     "strings"
+    "flag"
 
     jira "github.com/andygrunwald/go-jira"
     "github.com/jroimartin/gocui"
@@ -211,12 +212,18 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
                         "\r\n",
                         -1,
                     )
-                    fmt.Fprintln(v, "Reporter: "+issue.Fields.Reporter.DisplayName)
-                    // fmt.Fprintln(v, "Assignee: "+issue.Fields.Assignee.DisplayName)
-                    // fmt.Fprintln(v, "Labels: "+strings.Join(issue.Fields.Labels, ","))
-                    // fmt.Fprintln(v, "Priority: "+issue.Fields.Priority.Name)
-                    // TODO: Find a way to handle exceptions here,
-                    // TODO: Sometimes fields (like .Assignee) is nil
+                    fmt.Fprintln(v, "Reporter: " + issue.Fields.Reporter.DisplayName)
+                    if (issue.Fields.Assignee != nil) {
+                        fmt.Fprintln(v, "Assignee: " + issue.Fields.Assignee.DisplayName)
+                    }
+                    if (issue.Fields.Labels != nil) {
+                        if len(issue.Fields.Labels) > 0 {
+                            fmt.Fprintln( v, "Labels: " + strings.Join(issue.Fields.Labels, ","))
+                        }
+                    }
+                    if (issue.Fields.Priority != nil) {
+                        fmt.Fprintln(v, "Priority: "+issue.Fields.Priority.Name)
+                    }
                     fmt.Fprint(v, "Description:\n\n")
                     for i := range lineSlice {
                         fmt.Fprintln(v, lineSlice[i])
@@ -246,8 +253,7 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
         menuView, _ := g.View("menu")
         destroyView(g, menuView)
     case "":
-        // WHY U SELECT NOTHING?
-        // I'LL CLOSE THE MENU!!
+        log.Debug("User chose nothing, closing the menu, that'll teach the user..")
         menuView, _ := g.View("menu")
         destroyView(g, menuView)
     default:
@@ -290,7 +296,7 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
 
     xzero, _, _, yone, _ := g.ViewPosition(col.members[active.indexno].view.Title)
     if yone > maxY-14 {
-        // Menu will not fit, so let's lift it up a bit
+        log.Debug("Menu will not fit, lifting it up a bit")
         menuCoord = [4]int{xzero, yone - 14, xzero + 32, yone}
     } else {
         menuCoord = [4]int{xzero, yone, xzero + 32, yone + 14}
@@ -330,10 +336,11 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
         fmt.Fprintln(v, "Preview issue")
         fmt.Fprintln(v, "Comment on issue")
     }
-    // if err := g.SetKeybinding("menu", gocui.KeySpace, gocui.ModNone, destroyView); err != nil {
+
     if err := g.SetKeybinding("menu", gocui.KeyEsc, gocui.ModNone, destroyView); err != nil {
         log.Panicln(err)
     }
+
     if err := g.SetKeybinding("menu", gocui.KeySpace, gocui.ModNone, destroyView); err != nil {
         log.Panicln(err)
     }
@@ -389,7 +396,7 @@ func giveNextIssueCoord(g *gocui.Gui, col column) ([4]int, error) {
         // We are getting current member count of the column
         // and determine the position over that
         xzero, _, xone, yone, _ := g.ViewPosition(col.members[len(col.members)-1].view.Title)
-        //TODO error catch
+        //TODO error catch maybe?
         issueCoord = [4]int{xzero, yone + 1, xone, yone + 6}
     }
     return issueCoord, nil
@@ -410,13 +417,12 @@ func createIssue(g *gocui.Gui, issue jira.Issue) error {
     }
 
     if undefinedColumn {
-        //The issue's status is not in our column list,
-        updateStatus(g, "Issue with undefined column found and skipped.")
+        log.Warn("Issue with undefined column found and skipped.")
         return nil
     }
 
     validCoords, _ := giveNextIssueCoord(g, correctColumn)
-    // TODO error catch
+    // TODO error catch maybe?
 
     if v, err := g.SetView(
         issue.Key, validCoords[0], validCoords[1], validCoords[2], validCoords[3]); err != nil {
@@ -461,7 +467,7 @@ func createIssue(g *gocui.Gui, issue jira.Issue) error {
 
 func moveIssues(g *gocui.Gui, dy int, reset bool) error {
     if reset {
-        // This is a reset call
+        log.Debug("Got a ordering reset call")
         // Let's see if we're going to bottom or top
         goingToTop := false
         if moveCounter != 0 {
@@ -639,7 +645,7 @@ func rightLeftView(g *gocui.Gui, v *gocui.View, direction string) error {
         }
     }
 
-    // Reset the old column's replacement since we're leaving it
+    log.Debug("Resetting the view of the column we leave: " + active.columnname)
     moveIssues(g, 1000, true)
     if _, err := setCurrentViewOnTop(g, newView.Title); err != nil {
         return err
@@ -666,7 +672,7 @@ func upDownView(g *gocui.Gui, v *gocui.View, direction string) error {
             log.Debug("moveCounter pre-ordering value: " + strconv.Itoa(moveCounter))
             if direction == "up" {
                 if active.indexno == 0 {
-                    // We're already on top, go back to bottom
+                    log.Debug("Already on top, coordinating move to bottom")
                     active.indexno = len(kanbanMatrix[i].members) - 1
                     active.issuetitle = kanbanMatrix[i].members[active.indexno].view.Title
                     newView = kanbanMatrix[i].members[active.indexno].view
@@ -675,12 +681,11 @@ func upDownView(g *gocui.Gui, v *gocui.View, direction string) error {
                 }
             } else {
                 if len(kanbanMatrix[i].members) == active.indexno+1 {
-                    // We're already on bottom, let's check one more thing
+                    log.Debug("Already on bottom, coordinating move to top")
                     if len(kanbanMatrix[i].members) == 1 {
-                        // Dude, you only have one box here
+                        log.Debug("Wait, there is only one element here.. Doing nothing.")
                         return nil
                     }
-                    // Ok we're going to top
                     active.indexno = 0
                     active.issuetitle = kanbanMatrix[i].members[0].view.Title
                     newView = kanbanMatrix[i].members[0].view
@@ -689,28 +694,25 @@ func upDownView(g *gocui.Gui, v *gocui.View, direction string) error {
                 }
             }
 
-            log.Debug("We're not going to other side, we'll just slide one " + direction)
+            log.Debug("We're not on an edge, we'll just slide one " + direction)
             active.indexno = active.indexno + slideNumber
             active.issuetitle = kanbanMatrix[i].members[active.indexno].view.Title
             newView = kanbanMatrix[i].members[active.indexno].view
 
-            // If we're close to the edge, slide whole column up or down
-            if direction == "up" {
-                _, y0, _, _, _ := g.ViewPosition(newView.Title)
-                if y0 < 0 {
-                    log.Debug("We're close to the edge, will move whole column " + direction)
-                    moveIssues(g, 6, false)
-                }
-            } else {
-                _, maxY := g.Size()
-                _, _, _, y1, _ := g.ViewPosition(newView.Title)
-                if y1 > maxY-3 {
-                    log.Debug("We're close to the edge, will move whole column " + direction)
-                    moveIssues(g, -6, false)
-                }
+            columnNeedsToMove := false
+            _, maxY := g.Size()
+            _, y0, _, y1, _ := g.ViewPosition(newView.Title)
+            if (direction == "up") && (y0 < 0) {
+                log.Debug("We're close to the edge, will move whole column " + direction)
+                columnNeedsToMove = true
+            } else if (direction == "down") &&  (y1 > maxY-3) {
+                log.Debug("We're close to the edge, will move whole column " + direction)
+                columnNeedsToMove = true
+            }
+            if columnNeedsToMove {
+                moveIssues(g, -6*slideNumber, false)
             }
             break
-
         }
     }
 
@@ -817,21 +819,8 @@ func readConfig() configItem {
     configColumns = conf.GetStringSlice("board_list")
 
     if containsEmpty(instanceURL, username, password, query, browserCommand) {
-        fmt.Println(
-            `
-Sorry, couldn't find all required config variables.
-
-Here is an example config, the file should be placed under ~/.jb/jb.yaml :
-
-jira_instance: "https://my.jira.instance.address"
-jira_username: "my.username"
-jira_password: "my.password"
-board_list: ["Open", "In Progress", "On Hold", "Blocked External", "In Review"] # Or whichever statuses you want to display
-browser_command: "/usr/bin/xdg-open" # Or any other specific browser path
-jira_query: "project = TECH AND assignee = my.username AND status not in (Resolved, Closed, Rejected)" # Or any valid JQL
-
-`)
-        os.Exit(0)
+        fmt.Println("Sorry, couldn't find all required config variables.")
+        printConfigHelp()
     }
 
     return configItem{
@@ -841,6 +830,20 @@ jira_query: "project = TECH AND assignee = my.username AND status not in (Resolv
         query:          query,
         browserCommand: browserCommand,
     }
+}
+
+func printConfigHelp() {
+    fmt.Println(`
+Here is an example config, the file should be placed under ~/.jb/jb.yaml or /etc/jb/jb.yaml :
+
+jira_instance: "https://my.jira.instance.address"
+jira_username: "my.username"
+jira_password: "my.password"
+board_list: ["Open", "In Progress", "On Hold", "Blocked External", "In Review"] # Or whichever statuses you want to display
+browser_command: "/usr/bin/xdg-open" # Or any other specific browser path
+jira_query: "project = TECH AND assignee = my.username AND status not in (Resolved, Closed, Rejected)" # Or any valid JQL
+    `)
+    os.Exit(0)
 }
 
 func updateStatus(g *gocui.Gui, msg string) {
@@ -891,9 +894,34 @@ func containsEmpty(ss ...string) bool {
 
 func main() {
 
+    var logLevel = flag.String("loglevel", "info", "Accepted values are: info, debug, warn, fatal")
+    var configHelp = flag.Bool("confighelp", false, "Prints the configuration help")
+
+    flag.Usage = func() {
+        fmt.Println()
+        fmt.Println("jb is JIRA kanban board UI for terminal")
+        fmt.Println()
+        fmt.Println("Accepted parameters:")
+        fmt.Println()
+        flag.PrintDefaults()
+    }
+
+    flag.Parse()
+
+    if *configHelp {
+        printConfigHelp()
+    }
+
+    switch *logLevel {
+        case "info", "debug", "warn", "fatal":
+    default:
+        fmt.Println("Could not understand requested loglevel")
+        os.Exit(1)
+    }
     file, err := os.OpenFile("/tmp/jb.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
     if err == nil {
-        // log.SetLevel(logrus.DebugLevel)
+        requestedLevel, _ := logrus.ParseLevel(*logLevel)
+        log.SetLevel(requestedLevel)
         log.Out = file
     } else {
         log.Info("Failed to log to file, using default stderr")
