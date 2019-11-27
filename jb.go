@@ -287,7 +287,7 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
 
     menuCoord := [4]int{}
 
-    _, maxY := g.Size()
+    maxX, maxY := g.Size()
     activeIssue := jira.Issue{}
     col, err := getColumn(active.columnname)
     if err != nil {
@@ -295,11 +295,16 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
     }
 
     xzero, _, _, yone, _ := g.ViewPosition(col.members[active.indexno].view.Title)
+    menuCoord = [4]int{xzero, yone, xzero + 32, yone + 14}
     if yone > maxY-14 {
         log.Debug("Menu will not fit, lifting it up a bit")
-        menuCoord = [4]int{xzero, yone - 14, xzero + 32, yone}
-    } else {
-        menuCoord = [4]int{xzero, yone, xzero + 32, yone + 14}
+        menuCoord[1] = menuCoord[1] - 14
+        menuCoord[3] = yone
+    }
+    if xzero + 32 > maxX {
+        log.Debug("Menu will not fit, putting it to the left a bit")
+        menuCoord[0] = menuCoord[0] - 14
+        menuCoord[2] = menuCoord[2] - 14
     }
     activeIssue = col.members[active.indexno].issue
 
