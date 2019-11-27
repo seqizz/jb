@@ -472,7 +472,7 @@ func createIssue(g *gocui.Gui, issue jira.Issue) error {
 
 func moveIssues(g *gocui.Gui, dy int, reset bool) error {
     if reset {
-        log.Debug("Got a ordering reset call")
+        log.Debug("Got an ordering reset call")
         // Let's see if we're going to bottom or top
         goingToTop := false
         if moveCounter != 0 {
@@ -489,7 +489,6 @@ func moveIssues(g *gocui.Gui, dy int, reset bool) error {
                 if kanbanMatrix[i].view.Title == active.columnname {
                     for vi := range kanbanMatrix[i].members {
                         curView := kanbanMatrix[i].members[vi].view.Title
-                        // log.Debug("View: " + curView + "MOVE COUNTER: " + strconv.Itoa(moveCounter))
                         c1, c2, c3, c4, _ := g.ViewPosition(curView)
                         if moveCounter > 0 {
                             log.Debug("Coordinates: " +
@@ -694,7 +693,7 @@ func upDownView(g *gocui.Gui, v *gocui.View, direction string) error {
                     active.indexno = 0
                     active.issuetitle = kanbanMatrix[i].members[0].view.Title
                     newView = kanbanMatrix[i].members[0].view
-                    moveIssues(g, 0, true)
+                    moveIssues(g, 1000, true)
                     break
                 }
             }
