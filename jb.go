@@ -43,7 +43,7 @@ type configItem struct {
 
 var (
     kanbanlist    = []jira.Issue{}
-    logicalMx     = []column{}
+    kanbanMatrix     = []column{}
     active        = &activeBox{}
     jiraClient    = &jira.Client{}
     configColumns = []string{}
@@ -122,11 +122,11 @@ func executeQuery(conf configItem) []jira.Issue {
 }
 
 func activateFirstIssue(g *gocui.Gui) {
-    for i := range logicalMx {
-        if len(logicalMx[i].members) > 0 {
-            setCurrentViewOnTop(g, logicalMx[i].members[0].view.Title)
-            active.columnname = logicalMx[i].view.Title
-            active.issuetitle = logicalMx[i].members[0].view.Title
+    for i := range kanbanMatrix {
+        if len(kanbanMatrix[i].members) > 0 {
+            setCurrentViewOnTop(g, kanbanMatrix[i].members[0].view.Title)
+            active.columnname = kanbanMatrix[i].view.Title
+            active.issuetitle = kanbanMatrix[i].members[0].view.Title
             active.indexno = 0
             return
         }
@@ -142,9 +142,9 @@ func setCurrentViewOnTop(g *gocui.Gui, name string) (*gocui.View, error) {
 
 func getColumn(title string) (*column, error) {
 
-    for i := range logicalMx {
-        if logicalMx[i].view.Title == title {
-            return &logicalMx[i], nil
+    for i := range kanbanMatrix {
+        if kanbanMatrix[i].view.Title == title {
+            return &kanbanMatrix[i], nil
         }
     }
     return &column{}, errors.New("Couldn't found column with given title")
@@ -182,7 +182,7 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
             v.Title = "Comment on issue " + active.issuetitle
             setCurrentViewOnTop(g, "msgBox")
         }
-        if err := g.SetKeybinding("msgBox", gocui.KeyCtrlD, gocui.ModNone, destroyView); err != nil {
+        if err := g.SetKeybinding("msgBox", gocui.KeyEsc, gocui.ModNone, destroyView); err != nil {
             log.Panicln(err)
         }
         if err := g.SetKeybinding("msgBox", gocui.KeyCtrlS, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
@@ -192,7 +192,7 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
         }); err != nil {
             log.Panicln(err)
         }
-        updateStatus(g, "Send: Ctrl-S (not implemented yet)  |  Close: Ctrl-D")
+        updateStatus(g, "Send: Ctrl-S (not implemented yet)  |  Close: Esc")
     case "Preview issue":
         maxX, maxY := g.Size()
         if v, err := g.SetView("previewBox", 5, 3, maxX-5, maxY-3); err != nil {
@@ -203,9 +203,9 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
             v.Autoscroll = false
             v.Wrap = true
             v.Editable = true
-            for i := range logicalMx {
-                if logicalMx[i].view.Title == active.columnname {
-                    issue := logicalMx[i].members[active.indexno].issue
+            for i := range kanbanMatrix {
+                if kanbanMatrix[i].view.Title == active.columnname {
+                    issue := kanbanMatrix[i].members[active.indexno].issue
                     lineSlice := strings.SplitN(
                         issue.Fields.Description,
                         "\r\n",
@@ -226,10 +226,10 @@ func getMenuSelection(g *gocui.Gui, v *gocui.View) error {
             }
             setCurrentViewOnTop(g, "previewBox")
         }
-        if err := g.SetKeybinding("previewBox", gocui.KeyCtrlD, gocui.ModNone, destroyView); err != nil {
+        if err := g.SetKeybinding("previewBox", gocui.KeyEsc, gocui.ModNone, destroyView); err != nil {
             log.Panicln(err)
         }
-        updateStatus(g, "Close: Ctrl-D")
+        updateStatus(g, "Close: Esc")
     case "Open in browser":
         conf := readConfig()
         issueURL := ""
@@ -330,11 +330,15 @@ func openMenu(g *gocui.Gui, v *gocui.View) error {
         fmt.Fprintln(v, "Preview issue")
         fmt.Fprintln(v, "Comment on issue")
     }
+    // if err := g.SetKeybinding("menu", gocui.KeySpace, gocui.ModNone, destroyView); err != nil {
+    if err := g.SetKeybinding("menu", gocui.KeyEsc, gocui.ModNone, destroyView); err != nil {
+        log.Panicln(err)
+    }
     if err := g.SetKeybinding("menu", gocui.KeySpace, gocui.ModNone, destroyView); err != nil {
         log.Panicln(err)
     }
 
-    updateStatus(g, "Run action: Enter  |  Close menu: Spacebar")
+    updateStatus(g, "Run action: Enter  |  Close menu: Esc or Spacebar")
     setCurrentViewOnTop(g, "menu")
 
     return nil
@@ -344,14 +348,14 @@ func refreshBoard(g *gocui.Gui, v *gocui.View) error {
 
     updateStatus(g, "Refreshing board...")
 
-    for i := range logicalMx {
-        for m := range logicalMx[i].members {
-            g.DeleteKeybindings(logicalMx[i].members[m].view.Title)
-            g.DeleteView(logicalMx[i].members[m].view.Title)
+    for i := range kanbanMatrix {
+        for m := range kanbanMatrix[i].members {
+            g.DeleteKeybindings(kanbanMatrix[i].members[m].view.Title)
+            g.DeleteView(kanbanMatrix[i].members[m].view.Title)
         }
     }
-    for i := range logicalMx {
-        logicalMx[i].members = logicalMx[i].members[:0]
+    for i := range kanbanMatrix {
+        kanbanMatrix[i].members = kanbanMatrix[i].members[:0]
     }
 
     conf := readConfig()
@@ -397,9 +401,9 @@ func createIssue(g *gocui.Gui, issue jira.Issue) error {
     correctColumn := column{}
     undefinedColumn := true
 
-    for i := range logicalMx {
-        if logicalMx[i].view.Title == issue.Fields.Status.Name {
-            correctColumn = logicalMx[i]
+    for i := range kanbanMatrix {
+        if kanbanMatrix[i].view.Title == issue.Fields.Status.Name {
+            correctColumn = kanbanMatrix[i]
             undefinedColumn = false
             break
         }
@@ -470,18 +474,18 @@ func moveIssues(g *gocui.Gui, dy int, reset bool) error {
         }
         if goingToTop {
             log.Debug("View going to the top")
-            for i := range logicalMx {
-                if logicalMx[i].view.Title == active.columnname {
-                    for vi := range logicalMx[i].members {
-                        curView := logicalMx[i].members[vi].view.Title
+            for i := range kanbanMatrix {
+                if kanbanMatrix[i].view.Title == active.columnname {
+                    for vi := range kanbanMatrix[i].members {
+                        curView := kanbanMatrix[i].members[vi].view.Title
                         // log.Debug("View: " + curView + "MOVE COUNTER: " + strconv.Itoa(moveCounter))
                         c1, c2, c3, c4, _ := g.ViewPosition(curView)
                         if moveCounter > 0 {
                             log.Debug("Coordinates: " +
-                            	strconv.Itoa(c1) + " " +
-                            	strconv.Itoa(c2) + " " +
-                            	strconv.Itoa(c3) + " " +
-                            	strconv.Itoa(c4))
+                                strconv.Itoa(c1) + " " +
+                                strconv.Itoa(c2) + " " +
+                                strconv.Itoa(c3) + " " +
+                                strconv.Itoa(c4))
                             if _, err := g.SetView(curView, c1, c2+6*moveCounter, c3, c4+6*moveCounter); err != nil {
                                 return err
                             } else {
@@ -495,9 +499,9 @@ func moveIssues(g *gocui.Gui, dy int, reset bool) error {
             moveCounter = 0
         } else {
             log.Debug("View going to bottom")
-            for i := range logicalMx {
-                if logicalMx[i].view.Title == active.columnname {
-                    issueCount := len(logicalMx[i].members)
+            for i := range kanbanMatrix {
+                if kanbanMatrix[i].view.Title == active.columnname {
+                    issueCount := len(kanbanMatrix[i].members)
                     if issueCount > 5 {
                         for i := 1; i <= issueCount-5; i++ {
                             moveIssues(g, -6, false)
@@ -510,10 +514,10 @@ func moveIssues(g *gocui.Gui, dy int, reset bool) error {
         return nil
     }
 
-    for i := range logicalMx {
-        if logicalMx[i].view.Title == active.columnname {
-            for vi := range logicalMx[i].members {
-                curView := logicalMx[i].members[vi].view.Title
+    for i := range kanbanMatrix {
+        if kanbanMatrix[i].view.Title == active.columnname {
+            for vi := range kanbanMatrix[i].members {
+                curView := kanbanMatrix[i].members[vi].view.Title
                 c1, c2, c3, c4, _ := g.ViewPosition(curView)
                 if _, err := g.SetView(curView, c1, c2+dy, c3, c4+dy); err != nil {
                     return err
@@ -566,27 +570,27 @@ func rightLeftView(g *gocui.Gui, v *gocui.View, direction string) error {
 
     columnFound := false
     for !columnFound {
-        for i := range logicalMx {
-            if logicalMx[i].view.Title == newColumnName {
+        for i := range kanbanMatrix {
+            if kanbanMatrix[i].view.Title == newColumnName {
                 if direction == "right" {
-                    if i == len(logicalMx)-1 {
-                        newColumnName = logicalMx[0].view.Title
-                        if len(logicalMx[0].members) > 0 {
+                    if i == len(kanbanMatrix)-1 {
+                        newColumnName = kanbanMatrix[0].view.Title
+                        if len(kanbanMatrix[0].members) > 0 {
                             columnFound = true
                         }
                         break
                     }
                 } else {
                     if i == 0 {
-                        newColumnName = logicalMx[len(logicalMx)+slideNumber].view.Title
-                        if len(logicalMx[len(logicalMx)+slideNumber].members) > 0 {
+                        newColumnName = kanbanMatrix[len(kanbanMatrix)+slideNumber].view.Title
+                        if len(kanbanMatrix[len(kanbanMatrix)+slideNumber].members) > 0 {
                             columnFound = true
                         }
                         break
                     }
                 }
-                newColumnName = logicalMx[i+slideNumber].view.Title
-                if len(logicalMx[i+slideNumber].members) > 0 {
+                newColumnName = kanbanMatrix[i+slideNumber].view.Title
+                if len(kanbanMatrix[i+slideNumber].members) > 0 {
                     columnFound = true
                 }
                 break
@@ -596,36 +600,36 @@ func rightLeftView(g *gocui.Gui, v *gocui.View, direction string) error {
 
     boxFound := false
     for !boxFound {
-        for i := range logicalMx {
-            if logicalMx[i].view.Title == newColumnName {
-                if len(logicalMx[i].members) == 0 {
+        for i := range kanbanMatrix {
+            if kanbanMatrix[i].view.Title == newColumnName {
+                if len(kanbanMatrix[i].members) == 0 {
                     // Empty column, skip
                     if i == 0 {
-                        newColumnName = logicalMx[len(logicalMx)+slideNumber].view.Title
+                        newColumnName = kanbanMatrix[len(kanbanMatrix)+slideNumber].view.Title
                     } else {
-                        newColumnName = logicalMx[i+slideNumber].view.Title
+                        newColumnName = kanbanMatrix[i+slideNumber].view.Title
                     }
                     break
                 }
                 // Not empty
-                if len(logicalMx[i].members) > active.indexno && moveCounter == 0 {
+                if len(kanbanMatrix[i].members) > active.indexno && moveCounter == 0 {
                     log.Debug("We didn't move below screen, sliding to same place on new column")
-                    active.issuetitle = logicalMx[i].members[active.indexno].view.Title
-                    newView = logicalMx[i].members[active.indexno].view
+                    active.issuetitle = kanbanMatrix[i].members[active.indexno].view.Title
+                    newView = kanbanMatrix[i].members[active.indexno].view
                     log.Debug("Index no: " + strconv.Itoa(active.indexno))
                     log.Debug("Move counter: " + strconv.Itoa(moveCounter))
                 } else if moveCounter != 0 {
                     log.Debug("We already moved below screen, sliding to the first issue of new column")
                     active.indexno = 0
-                    active.issuetitle = logicalMx[i].members[active.indexno].view.Title
-                    newView = logicalMx[i].members[active.indexno].view
+                    active.issuetitle = kanbanMatrix[i].members[active.indexno].view.Title
+                    newView = kanbanMatrix[i].members[active.indexno].view
                     log.Debug("Index no: " + strconv.Itoa(active.indexno))
                     log.Debug("Move counter: " + strconv.Itoa(moveCounter))
                 } else {
                     log.Debug("Next column seems smaller, sliding to the last issue of new column")
-                    active.indexno = len(logicalMx[i].members) - 1
-                    active.issuetitle = logicalMx[i].members[active.indexno].view.Title
-                    newView = logicalMx[i].members[active.indexno].view
+                    active.indexno = len(kanbanMatrix[i].members) - 1
+                    active.issuetitle = kanbanMatrix[i].members[active.indexno].view.Title
+                    newView = kanbanMatrix[i].members[active.indexno].view
                     log.Debug("Index no: " + strconv.Itoa(active.indexno))
                     log.Debug("Move counter: " + strconv.Itoa(moveCounter))
                 }
@@ -657,29 +661,29 @@ func upDownView(g *gocui.Gui, v *gocui.View, direction string) error {
         slideNumber = -1
     }
 
-    for i := range logicalMx {
-        if logicalMx[i].view.Title == active.columnname {
+    for i := range kanbanMatrix {
+        if kanbanMatrix[i].view.Title == active.columnname {
             log.Debug("moveCounter pre-ordering value: " + strconv.Itoa(moveCounter))
             if direction == "up" {
                 if active.indexno == 0 {
                     // We're already on top, go back to bottom
-                    active.indexno = len(logicalMx[i].members) - 1
-                    active.issuetitle = logicalMx[i].members[active.indexno].view.Title
-                    newView = logicalMx[i].members[active.indexno].view
+                    active.indexno = len(kanbanMatrix[i].members) - 1
+                    active.issuetitle = kanbanMatrix[i].members[active.indexno].view.Title
+                    newView = kanbanMatrix[i].members[active.indexno].view
                     moveIssues(g, 0, true)
                     break
                 }
             } else {
-                if len(logicalMx[i].members) == active.indexno+1 {
+                if len(kanbanMatrix[i].members) == active.indexno+1 {
                     // We're already on bottom, let's check one more thing
-                    if len(logicalMx[i].members) == 1 {
+                    if len(kanbanMatrix[i].members) == 1 {
                         // Dude, you only have one box here
                         return nil
                     }
                     // Ok we're going to top
                     active.indexno = 0
-                    active.issuetitle = logicalMx[i].members[0].view.Title
-                    newView = logicalMx[i].members[0].view
+                    active.issuetitle = kanbanMatrix[i].members[0].view.Title
+                    newView = kanbanMatrix[i].members[0].view
                     moveIssues(g, 0, true)
                     break
                 }
@@ -687,8 +691,8 @@ func upDownView(g *gocui.Gui, v *gocui.View, direction string) error {
 
             log.Debug("We're not going to other side, we'll just slide one " + direction)
             active.indexno = active.indexno + slideNumber
-            active.issuetitle = logicalMx[i].members[active.indexno].view.Title
-            newView = logicalMx[i].members[active.indexno].view
+            active.issuetitle = kanbanMatrix[i].members[active.indexno].view.Title
+            newView = kanbanMatrix[i].members[active.indexno].view
 
             // If we're close to the edge, slide whole column up or down
             if direction == "up" {
@@ -765,7 +769,7 @@ func drawBoard(g *gocui.Gui) error {
             v.Wrap = true
 
             newcol := column{view: v, members: []issueBox{}}
-            logicalMx = append(logicalMx, newcol)
+            kanbanMatrix = append(kanbanMatrix, newcol)
 
         }
 
@@ -904,6 +908,7 @@ func main() {
     g.Mouse = false
     g.Highlight = true
     g.Cursor = true
+    g.InputEsc=true
     g.SelFgColor = gocui.ColorBlue
     g.SetManagerFunc(drawBoard)
 
