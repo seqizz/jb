@@ -2,6 +2,8 @@
 
 jb displays your JIRA kanban board in command line.
 
+![Example image of jb](https://i.imgur.com/qUYpVGC.jpg)
+
 It might be still buggy, but usable. Pull requests are welcome.
 
 #### Features
