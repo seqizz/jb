@@ -899,7 +899,7 @@ func containsEmpty(ss ...string) bool {
 
 func main() {
 
-    var logLevel = flag.String("loglevel", "info", "Accepted values are: info, debug, warn, fatal")
+    var logLevel = flag.String("loglevel", "fatal", "Accepted values are: info, debug, warn, fatal")
     var configHelp = flag.Bool("confighelp", false, "Prints the configuration help")
 
     flag.Usage = func() {
